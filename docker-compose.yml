@@ -1,0 +1,99 @@
+services:
+  php-fpm-7.0:
+    build:
+      context: ./php-fpm-7.0
+      dockerfile: Dockerfile
+    container_name: php-fpm-7.0
+    volumes:
+      - ./app:/var/www/html # 將您的專案程式碼掛載到此
+      - ./php-fpm-7.0/php.ini:/usr/local/etc/php/conf.d/custom.ini
+      - ./php-fpm-7.0/www.conf:/usr/local/etc/php-fpm.d/www.conf
+    expose:
+      - "9000" # PHP-FPM 預設 port，Nginx 將透過此 port 連線
+
+  php-fpm-7.4:
+    build:
+      context: ./php-fpm-7.4
+      dockerfile: Dockerfile
+    container_name: php-fpm-7.4
+    volumes:
+      - ./app:/var/www/html # 將您的專案程式碼掛載到此
+      - ./php-fpm-7.4/php.ini:/usr/local/etc/php/conf.d/custom.ini
+      - ./php-fpm-7.4/www.conf:/usr/local/etc/php-fpm.d/www.conf
+    expose:
+      - "9000" # 設定不同的 port 讓 Nginx 區分
+
+  php-fpm-8.3:
+    build:
+      context: ./php-fpm-8.3
+      dockerfile: Dockerfile
+    container_name: php-fpm-8.3
+    volumes:
+      - ./app:/var/www/html # 將您的專案程式碼掛載到此
+      - ./php-fpm-8.3/php.ini:/usr/local/etc/php/conf.d/custom.ini
+      - ./php-fpm-8.3/www.conf:/usr/local/etc/php-fpm.d/www.conf
+      # docker cp php-fpm-8.3:/usr/local/etc ./php-fpm-8.3/etc
+      # - ./php-fpm-8.3/etc:/usr/local/etc
+    expose:
+      - "9000" # 設定不同的 port 讓 Nginx 區分
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: nginx
+    ports:
+      - "80:80"   # 將 Nginx 的 80 port 映射到主機的 80 port
+      - "443:443" # 如果需要 HTTPS，則映射 443 port
+    volumes:
+      - ./app:/var/www/html # 與 PHP 服務共用程式碼
+      - ./nginx/conf.d:/etc/nginx/conf.d # 掛載 Nginx 設定檔
+    depends_on:
+      - php-fpm-7.0
+      - php-fpm-7.4
+      - php-fpm-8.3
+      - mysql
+      - redis
+      - postgres
+  mysql:
+    image: mysql:8.0 # 使用 MySQL 8.0 穩定版
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password} # 根用戶密碼，請務必更換為強密碼！
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-my_database}       # 預設資料庫名稱
+      MYSQL_USER: ${MYSQL_USER:-user}                  # 預設用戶名
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-password}          # 預設用戶密碼，請務必更換為強密碼！
+    volumes:
+      - mysql_data:/var/lib/mysql # 將資料庫資料持久化到具名資料卷
+      - ./mysql/custom.cnf:/etc/mysql/custom.cnf # 掛載自定義的 MySQL 設定檔 (可選)
+    ports:
+      - "3306:3306" # 將 MySQL 端口映射到主機，方便從主機連接資料庫工具
+
+  postgres:
+    image: postgres:15 # 使用 PostgreSQL 15 穩定版
+    container_name: postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-my_database}      # 預設資料庫名稱
+      POSTGRES_USER: ${POSTGRES_USER:-user}           # 預設用戶名
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}   # 預設用戶密碼，請務必更換為強密碼！
+    volumes:
+      - pg_data:/var/lib/postgresql/data # 將資料庫資料持久化到具名資料卷
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      # :ro 表示只讀 (read-only)，推薦用於配置文件，避免容器意外修改
+    ports:
+      - "5432:5432" # 將 PostgreSQL 端口映射到主機，方便從主機連接資料庫工具
+
+  # Caching Service
+  redis:
+    image: redis:latest # 使用最新版 Redis
+    container_name: redis
+    command: redis-server --appendonly yes # 啟動 AOF 持久化，防止資料丟失
+    volumes:
+      - redis_data:/data # 將 Redis 資料持久化到具名資料卷
+    ports:
+      - "6379:6379" # 將 Redis 端口映射到主機，方便從主機連接
+
+volumes:
+  mysql_data: # 定義具名資料卷，用於 MySQL 資料持久化
+  pg_data:    # 定義具名資料卷，用於 PostgreSQL 資料持久化
+  redis_data: # 定義具名資料卷，用於 Redis 資料持久化

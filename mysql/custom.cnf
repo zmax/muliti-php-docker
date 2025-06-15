@@ -1,0 +1,74 @@
+[mysqld]
+# --- 一般設定 ---
+# 監聽所有 IP，確保 Docker 容器可以連接
+bind-address = 0.0.0.0
+port = 3306
+
+# 字符集設定，確保資料正確顯示和儲存
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci
+
+# 緩慢查詢日誌 (用於調試和優化)
+# 啟用慢查詢日誌，記錄執行時間超過 long_query_time 的查詢
+slow_query_log = 1
+# 慢查詢日誌檔案路徑，通常在 /var/log/mysql/
+slow_query_log_file = /var/log/mysql/mysql-slow.log
+# 查詢執行時間閾值（秒），超過此值被記錄為慢查詢
+long_query_time = 1
+
+# 錯誤日誌路徑
+log_error = /var/log/mysql/error.log
+
+# 允許的最大連接數
+# 對於開發環境，100-200 應該足夠。生產環境需要根據應用程式需求調整。
+max_connections = 150
+
+# 最大允許的封包大小，確保可以處理大型查詢或 blob 資料
+max_allowed_packet = 64M
+
+# 臨時表的內存大小限制，避免寫入磁碟 (提高效能)
+tmp_table_size = 64M
+max_heap_table_size = 64M
+
+
+# --- InnoDB 設定 (現代 MySQL 推薦使用 InnoDB 引擎) ---
+# InnoDB 緩衝池大小。這是最重要的設定之一，用於快取資料和索引。
+# 對於開發環境，可以設定為 128M - 512M。
+# 對於生產環境，通常建議設定為伺服器總記憶體的 50% - 70%。
+innodb_buffer_pool_size = 256M # 例如，如果你的 Docker 有 1-2GB 記憶體，可以設為 256M-512M
+
+# InnoDB 日誌檔案大小。太小會頻繁寫入，太大會導致恢復時間長。
+# 應足夠大以容納至少一小時的寫入活動。
+innodb_log_file_size = 64M
+
+# 控制 InnoDB 事務日誌的刷寫頻率，影響資料持久性和效能。
+# 1 (預設，最高持久性，可能影響寫入效能)
+# 0 (最高效能，但資料可能在崩潰時丟失 1 秒的資料)
+# 2 (折衷方案，每秒刷寫一次，除非崩潰，否則資料不會丟失)
+# 開發環境可以設為 2 提升寫入效能，生產環境通常保持 1 或 2。
+innodb_flush_log_at_trx_commit = 2
+
+# 是否為每個表建立一個單獨的 .ibd 檔案。
+# 推薦設為 ON，有助於管理和回收空間。
+innodb_file_per_table = 1
+
+# InnoDB 線程並發控制
+# 建議設為 CPU 核心數的 1-2 倍，或者保持預設讓 InnoDB 自行調整。
+# innodb_thread_concurrency = 0 # 0 表示自動管理
+
+# --- 快取設定 (MySQL 8.0 移除了 Query Cache，這裡主要指其他快取) ---
+# table_open_cache: 打開的表文件描述符的快取大小。
+# 建議根據你的應用程式同時打開的表數量來調整。
+table_open_cache = 400
+
+# thread_cache_size: 緩存線程，減少每次新連接的創建開銷。
+thread_cache_size = 100
+
+# --- 其他 ---
+# SQL Mode: 嚴格模式，有助於數據一致性和避免隱式類型轉換
+sql_mode="STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO"
+
+# Binary Log (如果需要 replication 或 Point-in-Time Recovery 才需要開啟)
+# log_bin = mysql-bin
+# binlog_format = ROW
+# server_id = 1
